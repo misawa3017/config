@@ -1,0 +1,116 @@
+# backend deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.backEnd.name }}-socket-deployment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.backEnd.name }}-socket
+  annotations:
+    link.argocd.argoproj.io/external-link: https://socket-{{ .Values.targetLocationHost }}:{{ .Values.externalUrlPort }}/
+    # argocd.argoproj.io/sync-options: Replace=true
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.backEnd.name }}-socket
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.backEnd.name }}-socket
+        # gocdtime: {{ .Values.builderStamp }}
+    spec:
+      volumes:
+      - name: {{ .Values.backEnd.name }}-pvc-1-storage
+        persistentVolumeClaim:
+          claimName: {{ .Values.backEnd.name }}-pvc-1
+          readOnly: false
+      - name: tz-xcome-dpc-sync
+        configMap:
+          defaultMode: 420
+          name: taipei
+          items:
+          - key: localtime
+            path: localtime
+      - name: mounted-secrets
+        projected:
+          sources:
+          - secret: 
+              name: deployment-jwt-tls
+          # - secret:
+          #     name: {{ .Values.namespace }}-msa-account-mirror
+      imagePullSecrets:
+      - name: {{ .Values.dockerSecretName }}   # need to be saved for the namespace or cluster
+      containers:
+      - name: node-v5-server-socket-box
+        image: {{ if .Values.backEnd.socketFullImage -}} {{ .Values.backEnd.socketFullImage }} {{- else -}}  {{ .Values.backEnd.socketImage }}:{{ .Values.backEnd.imageTag }} {{- end }}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "250m"
+        env:
+          - name: SERVER_CERT_CA   #   PKI ca-chain.crt
+            value: {{ .Values.backEnd.crtCAPubSecret }}
+          - name: SERVER_CERT   #   crt  pub key   tls.crt
+            value: {{ .Values.backEnd.crtPubKeySecret }}        
+          - name: SERVER_CERT_KEY   #  crt private key   tls.key
+            value: {{ .Values.backEnd.crtPrivateKeySecret }}
+          - name: SERVER_URL                      
+            value: https://api{{ .Values.targetLocationHost }}:{{ .Values.externalUrlPort }}/
+          - name: SOCKET_LOG_PATH
+            value: {{ .Values.storagePath }}/socket
+        volumeMounts:
+        - name: tz-xcome-dpc-sync
+          mountPath: /etc/localtime
+          subPath: localtime
+        - name: mounted-secrets
+          mountPath: {{ .Values.projectRoot }}/src/config/certificates
+        - name: {{ .Values.backEnd.name }}-pvc-1-storage
+          mountPath: {{ .Values.storagePath }}
+---
+
+# socket service
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: {{ .Values.namespace }}
+  name:  {{ .Values.backEnd.name }}-socket-service
+spec:
+  # type: LoadBalancer
+  selector:
+    app: {{ .Values.backEnd.name }}-socket
+  ports:
+    - name: socket-ws-port
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+    - name: socket-wss-port
+      protocol: TCP
+      port: 9443
+      targetPort: 9443
+
+
+
+# ---
+# #  ingress config
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: socket-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/proxy-body-size: 512m
+#   namespace: {{ .Values.namespace }}
+# spec:
+#   rules:
+#   - host: socket-{{ .Values.targetLocationHost }}
+#     http:
+#       paths:
+#       - backend:
+#           service:
+#             name: {{ .Values.backEnd.name }}-socket-service
+#             port: 
+#               number: 9000
+#         path: /
+#         pathType: ImplementationSpecific

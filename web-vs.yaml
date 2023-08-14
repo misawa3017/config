@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: v5-vs
+  namespace: skymdm-v5-jason
+spec:
+  hosts:
+  - "skymdm-v5-jason.xcmdm.com"
+  gateways:
+  - web-gw
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        port:
+          number: 9081
+        host: spa-v5-xcome-service

@@ -1,0 +1,118 @@
+# deployed under namespace of 
+namespace: 'skymdm-v5-test'
+#NB. save this secret ahead of time in the target cluster to pull images
+dockerSecretName: xcome.harbor.k8s
+targetLocationHost: skymdm-v5-test.xcmdm.com # TODO add new parameter for specific the host
+externalUrlHost: https://skymdm-v5-test.xcmdm.com
+externalUrlPort: 62443
+storagePath: /opt/app-root/shared
+logPath: /opt/app-root/shared/log
+projectRoot: /opt/app-root/src
+# config for frontEnd
+frontEnd:
+  replicaSet: 1
+  name: spa-v5-xcome
+  servicePort: 9081
+  image: harbor.k8s/skymdmv5/v5-spa-nginx
+  # upate this if need different deployment than master
+  imageTag: latest
+  qaTag: master
+# config for backEnd
+backEnd:
+  replicaSet: 1      #  increase replicas  TODO:  multiple server containers
+  # uihostname =   server-v5-xcome-ui-service
+  name: server-v5-xcome
+  image: harbor.k8s/skymdmv5/v5-xcome-server
+  socketImage: harbor.k8s/skymdmv5/v5-xcome-socket-server
+  # upate this if need different deployment than master
+  imageTag: latest
+  qaTag: master
+  hostApiPort: 3000
+  dpcPort: 7443
+  dpcServicePort: 4443
+  # server verson
+  serverVersion: master
+
+  envMode: production
+
+  # db config
+  dbEngine: mongodb #switch to mssql here
+  # db with secret configs  TODO:  database name 
+  dbName: skymdm # set default, over ride on deployment
+  # msa key needed if not already enrolled
+  crtMsaSecretPath: /opt/app-root/src/src/config/certificates/msa-login.json
+  # secret name
+  crtMsaSecret: source-msa-account-secret
+  # db user name
+  dbUserNameSecret: xcome.mongodb.user.secret
+  # db pass
+  dbUserPassSecret: xcome.mongodb.pass.secret
+  # server tls crt and key ( abandoned values)
+  # backendTlsServerSecret: deployment-server-tls
+  # # ca pub key  ( abandoned values ) 
+  # backendTlsCaSecret: deployment-ca-tls
+  # #jwt tls pub key ( abandoned values ) 
+  # backendTlsJwtSecret: deployment-jwt-tls
+  # PKI ca crt
+  crtCAPubSecret: /opt/app-root/src/src/config/certificates/xcome.ca.chain.crt
+  # server  pub key
+  crtPubKeySecret: /opt/app-root/src/src/config/certificates/tls.crt
+  # server  private key
+  crtPrivateKeySecret: /opt/app-root/src/src/config/certificates/tls.key
+  # expose error to clients
+  exposeErrorToClient: true
+  # proxy for emm and google 
+  proxyHttp: tcp://192.168.50.137:3128
+  proxyHttps: tcp://192.168.50.137:3128
+  
+  fcmKey: /opt/app-root/src/src/config/certificates/service-account-firebase-adminsdk.json
+  # NDES script 
+  ndesScript: "cd /usr/local/share/scep && ./adam_scep_enroll.sh %(ndes.scepUrl)s %(ndes.scepAccount1)s %(ndes.scepAccount2)s %(ndes.scepPassword)s %(serialNumber)s"
+  # NDES shell script
+  ndesShellScript: /usr/local/share/scep
+  #  Directory name for NDES certificates in storage final->  /opt/app-root/shared/NDES
+  ndesCertDirName: NDES 
+  # ndes default serialNo.
+  ndesDefaultSerailNo: 'Administrator'
+  #  push types
+  pushTypes: "fcm,adam"
+  #  ADAM host
+  adamHost: tpemmcmd.tsmc.com.tw
+  #  ADAM port
+  adamPort: "41900"
+  # testing timeout
+  adamTimeout: "1000"
+  # Redis
+  # configs
+  redisHost: "192.168.50.235"
+  # redis db
+    # redis type/mode
+  redisType: standalone # or empty  or standalone
+  # redis db
+  redisSentinel:
+     # sentinel master name
+     masterName: mymaster
+     # hosts
+     host: 192.168.50.132:26379,192.168.50.133:26379,192.168.50.134:26379
+     # sentinel password
+     password: '****175'  #updated from configMap
+  # redis db
+  redisDb: '4'
+  # mock google play calls for load test
+  mockGooglePlay: 'false'
+  # Logger transports
+  loggingConfig: FILESYSTEM,STANDARDSTREAMS
+  # logging request, response
+  logging:
+    v1Request: true
+    v1Response: true
+    v5Request: true
+    v5Response: true
+  socketServer:
+    url: http://server-v5-xcome-socket-service:9000
+  dbHostAlias: 192.168.50.191
+  androidManagementAPI:
+    enabled: true
+    key: /opt/app-root/src/src/config/certificates/amapi-login.json
+
+

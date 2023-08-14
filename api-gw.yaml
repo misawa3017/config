@@ -1,0 +1,26 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: api-gw
+  namespace: skymdm-v5-jason
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - apiskymdm-v5-jason.xcmdm.com
+    tls:
+      httpsRedirect: true # sends 301 redirect for http requests
+  - port:
+      number: 443
+      name: https-443
+      protocol: HTTPS
+    hosts:
+    - spikymdm-v5-jason.xcmdm.com
+    tls:
+      mode: SIMPLE # enables HTTPS on this port
+      credentialName: api-gw-secret

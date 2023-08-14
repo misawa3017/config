@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 200m
+  namespace: {{ .Values.namespace }}
+spec:
+  rules:
+  - host: {{ .Values.targetLocationHost }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: spa-v5-xcome-service
+            port: 
+              number: {{ .Values.frontEnd.servicePort }}
+        path: /
+        pathType: ImplementationSpecific
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 512m
+  namespace: {{ .Values.namespace }}
+spec:
+  rules:
+  - host: api{{ .Values.targetLocationHost }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Values.backEnd.name }}-ui-service
+            port: 
+              number: {{ .Values.backEnd.hostApiPort }}
+        path: /
+        pathType: ImplementationSpecific

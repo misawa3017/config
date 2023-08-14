@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: {{ .Values.namespace }}-deployment-react-env-config
+ namespace: {{ .Values.namespace }}
+data:
+ # TO-DO indent and set values
+ env-config.js: "window.envConfig = {  APP: { VERSION: '{{ .Values.frontEnd.qaTag }}', SERVER_VERSION: '{{ .Values.backEnd.qaTag }}'}, API: { SERVER_URL: '' }, SOCKET_SERVER: { URL: 'https://{{ .Values.targetLocationHost }}:{{ .Values.externalUrlPort }}' }, ENVIROMENT: { email: 'qa_admin@xcome.com' }, AMAPI: { enabled: {{ .Values.backEnd.androidManagementAPI.enabled }} } };"

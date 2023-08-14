@@ -1,0 +1,29 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: web-gateway
+  namespace: istio-system
+spec:
+  secretName: web-gw-secret
+  isCA: false
+  usages:
+    - server auth
+  dnsNames:
+  - "skymdm-v5-jason.xcmdm.com"
+  issuerRef:
+    name: root-ca-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-gateway
+  namespace: istio-system
+spec:
+  secretName: api-gw-secret
+  isCA: false
+  usages:
+    - server auth
+  dnsNames:
+  - "apiskymdm-v5-jason.xcmdm.com"
+  issuerRef:
+    name: root-ca-issuer

@@ -1,0 +1,251 @@
+# backend deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.backEnd.name }}-deployment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.backEnd.name }}
+  annotations:
+    link.argocd.argoproj.io/external-link: https://api{{ .Values.targetLocationHost }}:{{ .Values.externalUrlPort }}/
+    # argocd.argoproj.io/sync-options: Replace=true
+spec:
+  replicas: {{ .Values.backEnd.replicaSet }}
+  selector:
+    matchLabels:
+      app: {{ .Values.backEnd.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.backEnd.name }}
+        # gocdtime: {{ .Values.builderStamp }}
+    spec:
+      # securityContext:    # Any security concern?
+      #   fsGroup: 1000
+      volumes:
+      - name: {{ .Values.backEnd.name }}-pvc-1-storage
+        persistentVolumeClaim:
+          claimName: {{ .Values.backEnd.name }}-pvc-1
+          readOnly: false
+      - name: mounted-secrets
+        projected:
+          sources:
+          - secret: 
+              name: deployment-jwt-tls
+          - secret:
+              name: {{ .Values.namespace }}-msa-account-mirror
+      - name: jwt-tls-crt
+        projected:
+          sources:
+          - secret:
+              name: deployment-jwt-tls
+      - name: tz-xcome-dpc-sync
+        configMap:
+          defaultMode: 420
+          name: taipei
+          items:
+          - key: localtime
+            path: localtime
+        # hostPath: 
+        #   path: {{ if .Values.backEnd.timezone -}} {{ .Values.backEnd.timezone | quote }} {{- else -}} "/usr/share/zoneinfo/Asia/Taipei" {{- end }}  
+        #   type: File
+      imagePullSecrets:
+      - name: {{ .Values.dockerSecretName }}   # need to be saved for the namespace or cluster
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: node-v5-server-box
+        image:  {{ if .Values.backEnd.serverFullImage -}} {{ .Values.backEnd.serverFullImage }} {{- else -}}  {{ .Values.backEnd.image }}:{{ .Values.backEnd.imageTag }} {{- end }}  
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "64m"
+          limits:
+            memory: "768Mi"
+            cpu: "768m"
+        env:  
+          - name: DB_ENGINE   #   db engine
+            value: {{ .Values.backEnd.dbEngine }}
+          - name: DB_NAME   #   db user
+            value: {{ .Values.backEnd.dbName }}   # skymdm-default
+          - name: DB_USER   #   db user
+            valueFrom:
+              secretKeyRef: 
+                name: mongo-db-auth
+                key: username 
+          - name: DB_PASS   #   db pass
+            valueFrom:
+              secretKeyRef: 
+                name: mongo-db-auth
+                key: password
+          - name: DB_REPLICA_HOST
+            value: mongo1:30001,mongo2:30002,mongo3:30003
+          # - name: SERVER_CERT_ROOT_PATH   #  cert path  -fixed  default supplied on container build
+          #   value: {{ .Values.backEnd.crtRootPath }}  
+          - name: SERVER_CERT_CA   #   PKI ca-chain.crt
+            value: {{ .Values.backEnd.crtCAPubSecret }}
+          - name: SERVER_CERT   #   crt  pub key   tls.crt
+            value: {{ .Values.backEnd.crtPubKeySecret }}        
+          - name: SERVER_CERT_KEY   #  crt private key   tls.key
+            value: {{ .Values.backEnd.crtPrivateKeySecret }}
+          - name: SERVER_URL                      
+            value: https://api{{ .Values.targetLocationHost }}:{{ .Values.externalUrlPort }}/
+          - name: APP_VERSION  # app version 
+            value: {{ .Values.backEnd.qaTag }}
+          - name: SERVER_ERROR_EXPOSE_TO_CLIENT
+            value: "true"
+          - name: LOG_TRANSPORTS
+            value: {{ if .Values.backEnd.loggingConfig -}} {{ .Values.backEnd.loggingConfig | quote }} {{- else -}} "FILESYSTEM,STANDARDSTREAMS" {{- end }}    # For K8s fluent bit
+          - name: MSA_KEY
+            value: {{ .Values.backEnd.crtMsaSecretPath }}
+          - name: SERVER_JWT_DIRPATH
+            value: {{ .Values.projectRoot }}/src/config/certificates
+          - name: STORAGE_PATH  # Companies storage & seed
+            value: {{ .Values.storagePath }}
+          - name: LOG_PATH
+            value: {{ .Values.storagePath }}/log
+          - name: MY_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: UI_HOST
+            value: {{ .Values.externalUrlHost }}
+          - name: UI_PORT
+            value: {{ .Values.externalUrlPort | quote}}
+          - name: ENVIROMENT_MODE
+            value: {{ .Values.backEnd.envMode }}
+          - name: PROXY_HTTP
+            value: {{ .Values.backEnd.proxyHttp }}
+          - name: HTTP_PROXY
+            value: {{ .Values.backEnd.proxyHttp }}
+          - name: PROXY_HTTPS
+            value: {{ .Values.backEnd.proxyHttps }}
+          - name: APP_URL
+            value: {{ .Values.externalUrlHost }}:{{ .Values.externalUrlPort }}
+            # Redis configs
+            # update with secret
+          - name: REDIS_HOST
+            value: {{ .Values.backEnd.redisHost }}
+          - name: REDIS_TYPE
+            value: {{ if .Values.backEnd.redisType -}} {{ .Values.backEnd.redisType }} {{- else -}} "standalone" {{- end }} 
+          - name: REDIS_SENTINEL_MASTER_NAME
+            value: {{ if .Values.backEnd.redisSentinel -}} {{ .Values.backEnd.redisSentinel.masterName }} {{- else -}} "mymaster2" {{- end }} 
+          - name: REDIS_SENTINEL_HOST
+            value: {{ if .Values.backEnd.redisSentinel -}} {{ .Values.backEnd.redisSentinel.host }} {{- else -}} "" {{- end }} 
+          - name: REDIS_SENTINEL_PASSWORD
+            valueFrom:
+                secretKeyRef:
+                  name: mongo-db-auth
+                  key: password
+
+          - name: REDIS_DB
+            value: {{ .Values.backEnd.redisDb | quote }}
+          # - name: REDIS_USER_NAME
+          #   value: 
+          # - name: REDIS_PORT
+          #   value: {{ 6379 | quote }}
+          - name: REDIS_PASSWORD
+            valueFrom:
+                secretKeyRef:
+                  name: mongo-db-auth
+                  key: password
+          # NDES configs
+          - name: NDES_SCRIPT
+            value: {{ .Values.backEnd.ndesScript }}
+          - name: NDES_SCRIPT_LOCATION
+            value: {{ .Values.backEnd.ndesShellScript }}
+          - name: NDES_CERTIFICATES_DIRECTORY_NAME
+            value: {{ .Values.backEnd.ndesCertDirName }}
+          - name: NDES_DEFAULT_SERIAL_NUMBER
+            value: {{ .Values.backEnd.ndesDefaultSerailNo }}
+          # Push service , Adam configs , fcm
+          - name: PUSH_TYPE
+            value: {{ .Values.backEnd.pushTypes }}
+          - name: ADAM_HOST
+            value: {{ .Values.backEnd.adamHost | quote }}
+          - name: ADAM_PORT
+            value: {{ .Values.backEnd.adamPort | quote }}
+          - name: ADAM_TIMEOUT
+            value: {{ .Values.backEnd.adamTimeout | quote}}
+          - name: GOOGLE_APPLICATION_CREDENTIALS    #  fcm push key 
+            value: {{ .Values.backEnd.fcmKey }} 
+          # mock google play for load tests
+          - name: MOCK_GOOGLE_PLAY
+            value: {{ .Values.backEnd.mockGooglePlay  | quote }}
+          - name: DEVICE_CLOCK_DIFFERENCE_TOLERANCE_RANGE
+            value: {{ .Values.backEnd.dpcClockTolerance | quote }}
+          - name: TZ
+            value: "Asia/Taipei"
+          - name: V1_LOG_REQUEST_BODY
+            value:  {{ if .Values.backEnd.logging -}} {{  .Values.backEnd.logging.v1Request | quote }} {{- else -}} "true" {{- end }}
+          - name: V1_LOG_RESPONSE_BODY
+            value:  {{ if .Values.backEnd.logging -}} {{  .Values.backEnd.logging.v1Response | quote }} {{- else -}} "true" {{- end }}
+          - name: V5_LOG_REQUEST_BODY
+            value:  {{ if .Values.backEnd.logging -}} {{  .Values.backEnd.logging.v5Request | quote }} {{- else -}} "true" {{- end }}
+          - name: V5_LOG_RESPONSE_BODY
+            value:  {{ if .Values.backEnd.logging -}} {{  .Values.backEnd.logging.v5Response | quote }} {{- else -}} "true" {{- end }} 
+          # Socket server URL
+          - name: SOCKET_SERVER_URL
+            value: {{ .Values.backEnd.socketServer.url }} 
+          # Android management api 
+          - name: ANDROID_MANAGEMENT_API_ENABLED
+            value: {{  if  .Values.backEnd.androidManagementAPI -}} {{  .Values.backEnd.androidManagementAPI.enabled | quote }} {{- else -}} "false" {{- end }}
+          - name: ANDROID_MANAGEMENT_API_SERVICE_ACCOUNT_KEY
+            value: {{  if  .Values.backEnd.androidManagementAPI -}} {{  .Values.backEnd.androidManagementAPI.serviceAccount }} {{- else -}} "/opt/app-root/src/src/config/certificates/amapi-login.json" {{- end }}
+          - name: BTE
+            value: {{ .Values.backEnd.enableBTE  | quote }}
+        ports: 
+        - name: dpc-port
+          containerPort: {{ .Values.backEnd.dpcPort }}    # https ? 
+        - name: host-api-port
+          containerPort: {{  .Values.backEnd.hostApiPort }}    # from SPA  for UI ?
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/v5/healthcheck/ready-status
+            port: {{  .Values.backEnd.hostApiPort }}
+          initialDelaySeconds: 3
+          periodSeconds: 2
+        livenessProbe:
+          httpGet:
+            path: /api/v5/healthcheck/ready-status
+            port: {{  .Values.backEnd.hostApiPort }}
+          initialDelaySeconds: 7
+          periodSeconds: 5
+        volumeMounts:
+        - name: tz-xcome-dpc-sync
+          mountPath: /etc/localtime
+          subPath: localtime
+        - name: {{ .Values.backEnd.name }}-pvc-1-storage   # Mount shared storage
+          mountPath: {{ .Values.storagePath }}/storage
+        # mount secrets and shared pv storage
+        - name: jwt-tls-crt
+          mountPath: {{ .Values.projectRoot }}/src/config/jwt
+        - name: mounted-secrets
+          mountPath: {{ .Values.projectRoot }}/src/config/certificates
+        - name: {{ .Values.backEnd.name }}-pvc-1-storage
+          mountPath: {{ .Values.storagePath }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - npm run deploy-database
+          preStop:
+            exec:
+              command: ["/bin/bash","close-workers.sh"]
+
+      #  should link timezone if error  ln -sf /usr/share/zoneinfo/Africa/Nairobi /etc/localtime
+      #  remove from production
+      hostAliases:
+      - ip:  {{ if .Values.backEnd.dbHostAlias -}} {{  .Values.backEnd.dbHostAlias | quote }} {{- else -}} "192.168.50.191" {{- end }}
+        hostnames:
+        - "mongo1"
+        - "mongo2"
+        - "mongo3"
+      - ip: '192.168.50.137'
+        hostnames:
+        - "squid"
+      dnsPolicy: "ClusterFirst"
+---

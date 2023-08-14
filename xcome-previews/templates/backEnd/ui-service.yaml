@@ -1,0 +1,13 @@
+# connect front end to backend
+apiVersion: v1
+kind: Service
+metadata:
+  name:  {{ .Values.backEnd.name }}-ui-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app:  {{ .Values.backEnd.name }}
+  ports: 
+    - protocol: TCP
+      port: {{ .Values.backEnd.hostApiPort }}
+      targetPort: {{ .Values.backEnd.hostApiPort }}

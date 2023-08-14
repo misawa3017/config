@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: mongo-db-auth
+  namespace: {{ .Values.namespace }}
+data:
+  username: cm9vdA==
+  password: ODAzMDIxNzU=
+  redis-password: NmEzODc2ZGZhYmVhMDJjZjIzZmIxNTBhZDIwMjY2MTI5MzU4NjRlMTBmNmY2ZTYzMDA0NzZmNzdjOTY1YjlhOQ==
+  sentinel-password: ODAzMDIxNzUK

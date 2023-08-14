@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: test-ca-cluster-issuer
+  name: test-ingress
+  namespace: ingress-test
+spec:
+  rules:
+  - host: skymdm-v5-jason.xcmdm.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: myservice
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - skymdm-v5-jason.xcmdm.com
+    secretName: skymdm-v5-jason-cert

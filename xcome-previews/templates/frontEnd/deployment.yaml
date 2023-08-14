@@ -1,0 +1,61 @@
+# skymdmv5/v5-xcome-spa
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.frontEnd.name }}-deployment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.frontEnd.name }}
+  annotations:
+    link.argocd.argoproj.io/external-link: {{ .Values.externalUrlHost }}:{{ .Values.externalUrlPort }}
+    # argocd.argoproj.io/sync-options: Replace=true
+spec:
+  replicas: {{ .Values.frontEnd.replicaSet }}
+  selector:
+    matchLabels:
+      app: {{ .Values.frontEnd.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.frontEnd.name }}
+        # gocdtime: {{ .Values.builderStamp }}
+    spec:
+      volumes:
+      - name: react-env-config
+        configMap:
+          name: {{ .Values.namespace }}-deployment-react-env-config
+      - name: {{ .Values.frontEnd.name }}-pvc-storage
+        persistentVolumeClaim:
+          claimName: {{ .Values.frontEnd.name }}-pvc
+      - name: {{ .Values.backEnd.name }}-pvc-1-storage-ui
+        persistentVolumeClaim:
+          claimName: {{ .Values.backEnd.name }}-pvc-1
+      imagePullSecrets:
+      - name: {{ .Values.dockerSecretName }}   # need to be saved for the namespace or cluster
+      containers:
+      - name: {{ .Values.frontEnd.name }}-container
+        image: {{ if .Values.frontEnd.uifullImage -}} {{ .Values.frontEnd.uifullImage }} {{- else -}}  {{ .Values.frontEnd.image }}:{{ .Values.frontEnd.imageTag }} {{- end }}   
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "32m"
+          # limits:
+          #   memory: "256Mi"
+          #   cpu: "512m"
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        # - mountPath: "/var/log/nginx"
+        #   name: {{ .Values.frontEnd.name }}-pvc-storage
+        - mountPath: /opt/app-root/src/js/config/
+          name: react-env-config
+        - mountPath: "/opt/app-root/src/download"
+          name: {{ .Values.backEnd.name }}-pvc-1-storage-ui
+          subPath: "public"
+          readOnly: true
+        env:
+        - name: BACKEND_HOST_API
+          value: "http://{{ .Values.backEnd.name }}-ui-service"
+        - name: BACKEND_HOST_API_PORT
+          value: "{{ .Values.backEnd.hostApiPort }}"

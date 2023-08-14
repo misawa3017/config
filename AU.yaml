@@ -1,0 +1,13 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: v5ap
+  namespace: skymdm-v5-jason
+spec:
+  selector:
+    matchLabels:
+      app: server-v5-xcome
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]

@@ -1,0 +1,15 @@
+# device enroll load balancer or use tcp ingress ??
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: {{ .Values.namespace }}
+  name:  {{ .Values.backEnd.name }}-dpc-service
+spec:
+  # type: LoadBalancer
+  selector:
+    app: {{ .Values.backEnd.name }}
+  ports:
+    - name: dpc-port
+      protocol: TCP
+      port: {{ .Values.backEnd.dpcServicePort }}
+      targetPort: {{ .Values.backEnd.dpcPort }} 

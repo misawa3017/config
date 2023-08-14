@@ -1,0 +1,12 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: v5-server-request-authentication
+  namespace: skymdm-v5-jason
+spec:
+  selector:
+     matchLabels:
+      app: server-v5-xcome
+  jwtRules:
+   - issuer: https://kc.xcmdm.com:8443/realms/GoogleAuth
+     jwksUri: https://kc.xcmdm.com:8443/realms/GoogleAuth/protocol/openid-connect/certs

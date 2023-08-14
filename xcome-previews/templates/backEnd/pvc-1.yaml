@@ -1,0 +1,65 @@
+#  pvc for backend configs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.backEnd.name }}-pvc-1
+  namespace: {{ .Values.namespace }}
+spec:
+  # volumeName: {{ .Values.namespace }}-nfs-pv
+  storageClassName: nfs-client
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 3Gi  # make bigger for production and stage
+  # selector:
+  #   matchLabels:
+  #     pv: {{ .Values.namespace }}-nfs-pv
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.backEnd.name }}-pvc-msa
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: nfs-client
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100M
+
+
+# # storage class
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: nfs-pv-aman
+# provisioner: cluster.local/nfs-subdir-external-provisioner # or choose another name, must match deployment's env PROVISIONER_NAME'
+# parameters:
+#   pathPattern: "${.PVC.namespace}-nfs-pv" # waits for nfs.io/storage-path annotation, if not specified will accept as empty string.
+#   onDelete: retain
+--- 
+# # manual provision PV volumes
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: {{ .Values.namespace }}-nfs-pv
+#   labels:
+#     pv: {{ .Values.namespace }}-nfs-pv
+# spec:
+#   capacity:
+#     storage: 5Gi
+#   volumeMode: Filesystem
+#   accessModes:
+#     - ReadWriteMany
+#   persistentVolumeReclaimPolicy: Retain
+#   storageClassName: slow
+#   mountOptions:
+#     - hard
+#     - nfsvers=4.1
+## manual steps need to be done early on
+#   nfs:    #  create the sub directory, update permission chmod -R a+w {{ .Values.namespace }} ,
+#     path: /share/nfs-pv/{{ .Values.namespace }}
+#     server: 192.168.50.198
+## reclaim command -> kubectl  patch pv {{ .Values.namespace }}-nfs-pv -p '{"spec":{"claimRef": null}}'
